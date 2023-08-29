@@ -1,6 +1,6 @@
 body {
   text-align:center;
-  background-color: #403f3f;
+  background: linear-gradient(179deg, #394373 0%, #394373 23%, #000000 100%, #020202 100%);
 }
 
 #grid {
@@ -12,6 +12,12 @@ body {
 
 #container {
   display: inline-block;
+  background: rgba( 255, 255, 255, 0.2 );
+  box-shadow: 0 8px 32px 0 rgba( 31, 38, 135, 0.37 );
+  backdrop-filter: blur( 1px );
+  -webkit-backdrop-filter: blur( 1px );
+  border-radius: 10px;
+  border: 1px solid rgba( 255, 255, 255, 0.18 );
 }
 
 #rules {
@@ -36,6 +42,18 @@ li {
 #title {
   color: white;
   margin-bottom: 0px;
+}
+
+#grid {
+  background: rgba( 255, 255, 255, 0.2 );
+  box-shadow: 0 8px 32px 0 rgba( 31, 38, 135, 0.37 );
+  backdrop-filter: blur( 6.5px );
+  -webkit-backdrop-filter: blur( 6.5px );
+  border-radius: 1px;
+  border: 1px solid rgba( 255, 255, 255, 0.18 );
+  margin-bottom:5px;
+  margin-left:5px;
+  margin-right:5px;
 }
 
 #score {

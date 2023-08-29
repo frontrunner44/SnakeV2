@@ -3,7 +3,8 @@ const gameDefaults = {
       snake:[0], // Each position in the array is it's body segment. So 0 is the head and every position after is the body, with the last being the tail. Values of each position represent position on the grid.
       gridWidth:50, // The game.gridWidth of the grid will be used for positional calculations. The grid is 34x34 cells.
       gridSize:50*50, // Used for calculations pertaining to hitting the edges of the grid.50
-      currentDirection:"",
+      pendingDirection:"",
+      movingDirection:"",
       apples:[], // Store apple locations
       maxApples:3,
       gameTimers:{},
@@ -16,10 +17,10 @@ const gameDefaults = {
       bodyColor:"rgb(255, 255, 255)", // game.snake's body color
       bgColor:"rgb(0,0,0)", // The BG color left behind when your game.snake leaves a position.
       appleColor:"rgb(0,255,0)",
-      pressDown:38, // Button for moving down
-      pressLeft:39, // Button for moving left
-      pressRight:37, // Button for moving right
-      pressUp:40, // Button for moving up
+      pressDown:40, // Button for moving down
+      pressLeft:37, // Button for moving left
+      pressRight:39, // Button for moving right
+      pressUp:38, // Button for moving up
       addSegmentHere:-1, // Variable to store the tail's position on the grid in case we need to add a segment after eating an apple.
       powerUp:{color:"rgb(255, 215, 0)", speed:1000, chance:5, buffDuration:10000, location:-1, snakeFlashSpeed:250, flashColor:"rgb(255, 215, 0)"},
       immortalSnake:false
@@ -30,14 +31,14 @@ let game = structuredClone(gameDefaults); // Clones the default values from the 
 $(document).keydown(function(event){
   //console.log(game);
   startGame();
-  if(event.which === game.pressDown && game.currentDirection !== "down") {
-    game.currentDirection = "up";
-  } else if(event.which === game.pressLeft && game.currentDirection !== "left") {
-    game.currentDirection = "right";
-  } else if(event.which === game.pressRight && game.currentDirection !== "right") {
-    game.currentDirection = "left";
-  } else if(event.which === game.pressUp && game.currentDirection !== "up") {
-    game.currentDirection = "down";
+  if(event.which === game.pressDown && game.movingDirection !== "up") {
+    game.pendingDirection = "down";
+  } else if(event.which === game.pressLeft && game.movingDirection !== "right") {
+    game.pendingDirection = "left";
+  } else if(event.which === game.pressRight && game.movingDirection !== "left") {
+    game.pendingDirection = "right";
+  } else if(event.which === game.pressUp && game.movingDirection !== "down") {
+    game.pendingDirection = "up";
   }
 });
 
@@ -122,43 +123,47 @@ function moveSnake() {
 
   // Determine the head's new position based on the direction it is moving.
   // Moving right:
-  if(game.currentDirection === "right") {
-    game.currentDirection = "right";
+  if(game.pendingDirection === "right") {
 	  if(oldHeadPosition % game.gridWidth+1 !== game.gridWidth) { // Modular arithmetic for checking if you are NOT on an edge. If you're on the right edge, remainder will be the grid
 	   newHeadPosition = oldHeadPosition += 1;
 	  } else {
 	   newHeadPosition = oldHeadPosition -= game.gridWidth-1;
 	  }
+    game.movingDirection = "right";
+    console.log(`Snake moving direction set to ${game.movingDirection}`);
   }
 
-  // game.currentDirection left:
-  if(game.currentDirection === "left") { 
-    game.currentDirection = "left";
+  // game.pendingDirection left:
+  if(game.pendingDirection === "left") { 
     if(oldHeadPosition % game.gridWidth === 0) { // Modular arithmetic for calculating left edges
       newHeadPosition = oldHeadPosition += game.gridWidth-1;
     } else {
       newHeadPosition = oldHeadPosition -= 1;
     }
+    game.movingDirection = "left";
+    console.log(`Snake moving direction set to ${game.movingDirection}`);
   }
 
-  // game.currentDirection Up:
-  if(game.currentDirection === "up") {
-    game.currentDirection = "up";
+  // game.pendingDirection Up:
+  if(game.pendingDirection === "up") {
     if(oldHeadPosition > game.gridWidth-1) {
       newHeadPosition = oldHeadPosition -= game.gridWidth;
     } else {
       newHeadPosition = oldHeadPosition += game.gridSize-game.gridWidth;
     }
+    game.movingDirection = "up";
+    console.log(`Snake moving direction set to ${game.movingDirection}`);
   }
 
-  // game.currentDirection Down:
-  if(game.currentDirection === "down") { 
-    game.currentDirection = "down";
+  // game.pendingDirection Down:
+  if(game.pendingDirection === "down") { 
     if(oldHeadPosition < game.gridSize-game.gridWidth) {
       newHeadPosition = oldHeadPosition += game.gridWidth;
     } else {
       newHeadPosition = oldHeadPosition -= game.gridSize-game.gridWidth;
     }
+    game.movingDirection = "down";
+    console.log(`Snake moving direction set to ${game.movingDirection}`);
   }
 
   game.snake.unshift(newHeadPosition); // Push newHeadPosition to the front of the array to update the head's new location.
@@ -199,10 +204,7 @@ function eatSelf() {
 // PowerUp eating logic combined with game.snake flashing animation logic
 function eatPowerUp() {
   if(game.snake[0] === game.powerUp.location) {
-    //console.log("Triggered eat power up, you're immortal!");
-    //clearInterval(game.gameTimers.powerupSpawn);
     game.powerUp.location = -1;
-    //game.gameTimers.flashingLogic = setInterval(flashingLogic,game.powerUp.snakeFlashSpeed);
     game.immortalSnake = true;
     setTimeout(immortalBuffEnd,game.powerUp.buffDuration);
   }
@@ -210,14 +212,9 @@ function eatPowerUp() {
 
 function flashingLogic() {
   if(game.powerUp.location !== -1) {
-    console.log("Triggered exists");
-    console.log($(".cell").eq(game.powerUp.location).css("background-color"));
-    console.log(game.powerUp.color);
     if($(".cell").eq(game.powerUp.location).css("background-color") === game.powerUp.color) {
-      console.log("Trigger gold detected");
       $(".cell").eq(game.powerUp.location).css("background-color",game.bgColor);
     } else {
-      console.log("Trigger non-gold detected");
       $(".cell").eq(game.powerUp.location).css("background-color",game.powerUp.color);
     }
   } else {
