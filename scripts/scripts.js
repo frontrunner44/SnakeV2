@@ -2,6 +2,8 @@ const game = {
   started: false,
   difficultySetting: 2, // Index of difficulty for snake's movement speed
   difficulty: [500, 250, 100], // movement speed in miliseconds
+  maxApples: 3,
+  apples: 0,
   columns: 50,
   rows: 50,
   timers: [], // Will store timers IDs so we can iterate through this and stop them during game over or game reset.
@@ -20,7 +22,6 @@ const game = {
   grid: [],
   cellDefaults: {
     apple: false,
-    appleIndex: null,
     snake: false,
     powerUp: false,
     element: null,
@@ -54,7 +55,7 @@ document.addEventListener("keydown", event => {
   let dx;
   let dy;
   if(!game.started && snake.alive) {
-    // do stuff when game is just starting
+    generateApples();
     game.started = true;
   } 
   if(snake.alive && !game.moveCooldown) {
@@ -87,6 +88,30 @@ document.addEventListener("keydown", event => {
   }
 });
 
+function generateApples() {
+  const max = game.maxApples - game.apples; // Sets the max number of apples that can be spawned to game.maxApples - game.apples
+  const min = game.apples === 0 ? 1 : 0; // If no apples exist yet, the minimum to spawn is 1, otherwise minumum is 0.
+  const spawnAmount = randomNum(min, max); // Spawn a random number of apples between min and max.
+  console.log(`${spawnAmount} is the returned random number`);
+  for(i = 0; i < spawnAmount; i++) { // Attemps to spawn an apple spawnAmount times
+    if(game.apples === game.maxApples) { // If we are already at max apple capacity, 
+      return; // we simply return and do not spawn an apple
+    } else { // otherwise we execute apple spawning logic
+      let appleSpawned = false; // Sets to appleSpawned false before attempting to spawn an apple
+      while(!appleSpawned) { // Loops until an apple is spawned and appleSpawned is set to true
+        const ranX = randomNum(0, game.columns-1); // Sets ranX to a random column
+        const ranY = randomNum(0, game.rows-1); // Sets ranY to a random row
+        if(isEmpty(ranX, ranY)) {
+          game.grid[ranX][ranY].apple = true;
+          game.grid[ranX][ranY].element.classList.add("apple");
+          game.apples++;
+          appleSpawned = true;
+        }
+      }
+    }
+  }
+}
+
 function moveSnake(dx, dy) {
   const x = snake.position[0][0]; // Stores the x coordinate of the snake's head.
   const y = snake.position[0][1]; // Stores the y coordinate of the snake's head.
@@ -115,7 +140,10 @@ function checkAteApple(x, y) {
     game.grid[tailX][tailY].element.classList.remove(snake.bodyClass);
     game.grid[tailX][tailY].snake = false;
   } else {
-    // handle apple eating logic here -- by ommiting the above logic we essentially create a new segment of the snake by NOT removing its tail
+    game.grid[x][y].apple = false;
+    game.grid[x][y].element.classList.remove("apple");
+    game.apples--;
+    generateApples();
   }
 }
 
@@ -161,6 +189,20 @@ function flashSnake() {
     const y = segment[1];
     game.grid[x][y].element.classList.add(snake.bodyClass);
   }
+}
+
+// Helper function to determine is a grid is empty or not.
+function isEmpty(x, y) {
+  if(game.grid[x][y].apple === false && game.grid[x][y].snake === false && game.grid[x][y].powerUp === false) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+function randomNum(min, max) {
+  console.log(`Random number between ${min} and ${max} being generated`)
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function gameOver() {

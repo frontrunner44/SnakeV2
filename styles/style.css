@@ -112,3 +112,7 @@ button:active {
 .powered-up {
   background-color: gold;
 }
+
+.apple {
+  background-color: green;
+}
