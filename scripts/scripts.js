@@ -4,14 +4,18 @@ const game = {
   difficulty: [500, 250, 100], // movement speed in miliseconds
   columns: 50,
   rows: 50,
-  appleLocations: [],
+  timers: [], // Will store timers IDs so we can iterate through this and stop them during game over or game reset.
   moveCooldownTimer: 100, // Move cooldown in miliseconds. Helps prevent sporadic movements that can cause unintional self collisions.
   moveCooldown: false,
-  snake: {
+  snakeDefaults: {
     alive: true,
     position: [[0,0]], // Default head position is 0,0
     direction:"",
     moveInterval: null,
+    flashInterval: null,
+    bodyClass: "snake-body",
+    headClass: "snake-head",
+    powerClass: "powered-up",
   },
   grid: [],
   cellDefaults: {
@@ -22,7 +26,7 @@ const game = {
     element: null,
   }
 }
-const snake = structuredClone(game.snake);
+const snake = structuredClone(game.snakeDefaults);
 
 // Grid generation. Since DOM elements are placed left to right
 window.onload = function() {
@@ -87,28 +91,31 @@ function moveSnake(dx, dy) {
   const x = snake.position[0][0]; // Stores the x coordinate of the snake's head.
   const y = snake.position[0][1]; // Stores the y coordinate of the snake's head.
   if(snake.position.length > 1) { // If snake is not only a head,
-    game.grid[x][y].element.classList.remove("snake-head"); // remove the snake-head color from the current head location
-    game.grid[x][y].element.classList.add("snake-body"); // and replace it with the body color
+    game.grid[x][y].element.classList.remove(snake.headClass); // remove the snake-head color from the current head location
+    game.grid[x][y].element.classList.add(snake.bodyClass); // and replace it with the body color
   } else { // otherwise
-    game.grid[x][y].element.classList.remove("snake-head"); // remove the snake head color from the cell
+    game.grid[x][y].element.classList.remove(snake.headClass); // remove the snake head color from the cell
     game.grid[x][y].snake = false;
   }
-  let newX = updatePosition(x+dx, game.columns); // Calls a helper function to determine where to place the new location. Mainly used to handle "wrapping" around the grid when going through an edge.
-  let newY = updatePosition(y+dy, game.rows); // Calls a helper function to determine where to place the new location. Mainly used to handle "wrapping" around the grid when going through an edge.
-  game.grid[newX][newY].element.classList.add("snake-head");
+  let newX = (x + dx + game.columns) % game.columns; // Uses modular arithmatic to wrap around columns
+  let newY = (y + dy + game.rows) % game.rows; // Uses modular arithmatic to wrap around columns
+  game.grid[newX][newY].element.classList.add(snake.headClass);
   game.grid[newX][newY].snake = true;
   snake.position.unshift([newX, newY]); // Adds the new head coordinates to the front of the snake.positions array
   checkAteApple(newX, newY); // Handles moving the tail as well
   checkCannibalism();
 }
 
-function updatePosition(xy, edge) {
-  if(xy < 0) {
-    return edge-1;
-  } else if(xy >= edge) {
-    return 0;
+function checkAteApple(x, y) {
+  if(!game.grid[x][y].apple) {
+    const lastIndex = snake.position.length-1;
+    const tailX = snake.position[lastIndex][0];
+    const tailY = snake.position[lastIndex][1];
+    snake.position.pop(); // Remove the tail
+    game.grid[tailX][tailY].element.classList.remove(snake.bodyClass);
+    game.grid[tailX][tailY].snake = false;
   } else {
-    return xy;
+    // handle apple eating logic here -- by ommiting the above logic we essentially create a new segment of the snake by NOT removing its tail
   }
 }
 
@@ -122,24 +129,38 @@ function checkCannibalism() {
   }
 }
 
-function checkAteApple(x, y) {
-  if(!game.grid[x][y].apple) {
-    const lastIndex = snake.position.length-1;
-    const tailX = snake.position[lastIndex][0];
-    const tailY = snake.position[lastIndex][1];
-    snake.position.pop(); // Remove the tail
-    game.grid[tailX][tailY].element.classList.remove("snake-body");
-    game.grid[tailX][tailY].snake = false;
-  } else {
-    // handle apple eating logic here -- by ommiting the above logic we essentially create a new segment of the snake by NOT removing its tail
-  }
+// Start the interval for flashing the snake gold and also start the timeout for when the buff ends and the snake returns to normal.
+function powerUpSnake() {
+  snake.flashInterval = setInterval(() => {
+    !snake.immortal ? snake.immortal = true : undefined; // sets the snake to immortal so it can pass through itself.
+    flashSnake(); // Calls the flash snake function every 
+  }, 300); // 300 milliseconds
+
+  setTimeout(() => {
+    clearInterval(snake.flashInterval);
+    if(snake.bodyClass === snake.powerClass) { // If the interval ends while the snake is golden, we trigger the flash one last time to get the snake back to normal color.
+      flashSnake();
+      snake.immortal = false;
+    }
+  },10000); // Buff ends after 10 seconds.
 }
 
-function testClick(element) {
-  const x = element.getAttribute("data-x");
-  const y = element.getAttribute("data-y");
-  console.log(`Clicked cell ${x}, ${y}`);
-  console.log(game.grid[x][y]);
+function flashSnake() {
+  // Remove old styling
+  for(const segment of snake.position) {
+    const x = segment[0];
+    const y = segment[1];
+    game.grid[x][y].element.classList.remove(snake.bodyClass);
+    game.grid[x][y].element.classList.remove(snake.headClass);
+  }
+  // Update styling
+  snake.bodyClass === snake.powerClass ? snake.bodyClass = game.snakeDefaults.bodyClass : snake.bodyClass = snake.powerClass;
+ // Add new styling
+  for(const segment of snake.position) {
+    const x = segment[0];
+    const y = segment[1];
+    game.grid[x][y].element.classList.add(snake.bodyClass);
+  }
 }
 
 function gameOver() {
