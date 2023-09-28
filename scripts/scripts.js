@@ -5,8 +5,10 @@ const gameDefaults = {
   difficulty: [150, 100, 50], // movement speed in miliseconds
   maxApples: 3,
   apples: 0,
-  powerUps: 0,
-  powerUpFlashTimer: null,
+  powerups: 0,
+  powerupFlashTimer: null,
+  powerupSpeedMultiplier: 2, // Snake speed is dictated in milliseconds and is divided by this number during a powerup. 2 would mean speed doubles
+  powerupDuration: 10000, // In milliseconds
   columns: 50,
   rows: 50,
   powerUpChance: 3, // When we go to determine if we'll spawn a powerup, we generate a number between 1 and this number. If it's 1, we spawn the powerup.
@@ -17,7 +19,7 @@ const gameDefaults = {
     alive: true,
     immortal: false,
     position: [[0,0]], // Default head position is 0,0
-    direction:"",
+    direction: [],
     moveInterval: null,
     flashInterval: null,
     bodyClass: "snake-body",
@@ -56,7 +58,6 @@ window.onload = function() {
   moveSnake(0, 0);
 }
 
-
 // Difficulty button functionality
 function difficultyButtons(diffSetting, diffName) {
   const element = document.getElementById("diff");
@@ -76,40 +77,42 @@ document.addEventListener("keydown", event => {
     game.started = true;
   } 
   if(snake.alive && !game.moveCooldown) {
-    console.log("Move triggered");
-    if(event.code === "ArrowLeft" && snake.direction !== "right") {
+    if(event.code === "ArrowLeft" && (snake.direction[0] !== 1 || snake.direction[1] !== 0)) {
       dx = -1;
       dy = 0;
-      snake.direction = "left";
-    } else if(event.code === "ArrowRight" && snake.direction !== "left") {
+      snake.direction = [-1, 0];
+    } else if(event.code === "ArrowRight" && (snake.direction[0] !== -1 || snake.direction[1] !== 0)) {
       dx = 1;
       dy = 0;
-      snake.direction = "right";
-    } else if(event.code === "ArrowDown" && snake.direction !== "up") {
+      snake.direction = [1, 0];
+    } else if(event.code === "ArrowDown" && (snake.direction[0] !== 0 || snake.direction[1] !== -1)) {
       dx = 0;
       dy = 1;
-      snake.direction = "down";
-    } else if(event.code === "ArrowUp" && snake.direction !== "down") {
+      snake.direction = [0, 1];
+    } else if(event.code === "ArrowUp" && (snake.direction[0] !== 0 || snake.direction[1] !== 1)) {
       dx = 0;
       dy = -1;
-      snake.direction = "up";
+      snake.direction = [0, -1];
     }
     if(dx !== undefined) {
-      clearInterval(snake.moveInterval);
-      const index = game.difficultySetting;
-      const speed = game.difficulty[index];
-      snake.moveInterval = setInterval(() => moveSnake(dx, dy), speed);
+      setMovementInterval(dx, dy);
       game.moveCooldown = true;
       setTimeout(() => game.moveCooldown = false, game.moveCooldownTimer)
     }
   }
 });
 
+function setMovementInterval(dx, dy) {
+  const index = game.difficultySetting;
+  const speed = game.difficulty[index];
+  clearInterval(snake.moveInterval);
+  snake.moveInterval = setInterval(() => moveSnake(dx, dy), speed);
+}
+
 function generateApples() {
   const max = game.maxApples - game.apples; // Sets the max number of apples that can be spawned to game.maxApples - game.apples
   const min = game.apples === 0 ? 1 : 0; // If no apples exist yet, the minimum to spawn is 1, otherwise minumum is 0.
   const spawnAmount = randomNum(min, max); // Spawn a random number of apples between min and max.
-  console.log(`${spawnAmount} is the returned random number`);
   for(i = 0; i < spawnAmount; i++) { // Attemps to spawn an apple spawnAmount times
     if(game.apples === game.maxApples) { // If we are already at max apple capacity, 
       return; // we simply return and do not spawn an apple
@@ -127,7 +130,7 @@ function generateApples() {
       }
     }
   }
-  if(randomNum(1, game.powerUpChance) === 1 && game.powerUps === 0 && !snake.immortal) { // If a randomly generated number between 1 and game.powerUpChance is 1 and there are no powerups on the board, and the snake is currently not powered up, we 
+  if(randomNum(1, game.powerUpChance) === 1 && game.powerups === 0 && !snake.immortal) { // If a randomly generated number between 1 and game.powerUpChance is 1 and there are no powerups on the board, and the snake is currently not powered up, we 
     generatePowerUp(); // call the function to generate a powerUp on the grid
   }
 }
@@ -135,13 +138,8 @@ function generateApples() {
 function moveSnake(dx, dy) {
   const x = snake.position[0][0]; // Stores the x coordinate of the snake's head.
   const y = snake.position[0][1]; // Stores the y coordinate of the snake's head.
-  if(snake.position.length > 1) { // If snake is not only a head,
-    grid[x][y].element.classList.remove(snake.headClass); // remove the snake-head color from the current head location
-    grid[x][y].element.classList.add(snake.bodyClass); // and replace it with the body color
-  } else { // otherwise
-    grid[x][y].element.classList.remove(snake.headClass); // remove the snake head color from the cell
-    grid[x][y].snake = false;
-  }
+  grid[x][y].element.classList.remove(snake.headClass); // remove the snake-head color from the current head location
+  snake.position.length > 1 ? grid[x][y].element.classList.add(snake.bodyClass) : grid[x][y].snake = false; // If the snake is not just a head, replace the uncolored cell with body color, otherwise leave it empty and mark it as not occupied by the snake
   let newX = (x + dx + game.columns) % game.columns; // Uses modular arithmatic to wrap around columns
   let newY = (y + dy + game.rows) % game.rows; // Uses modular arithmatic to wrap around columns
   grid[newX][newY].element.classList.add(snake.headClass);
@@ -153,7 +151,6 @@ function moveSnake(dx, dy) {
 }
 
 function handleTail() {
-  console.log("Handle tail called");
   const lastIndex = snake.position.length-1;
   const tailX = snake.position[lastIndex][0];
   const tailY = snake.position[lastIndex][1];
@@ -165,11 +162,10 @@ function handleTail() {
 }
 
 function ateApple(x, y) {
-  console.log("Ate apple called");
     grid[x][y].apple = false;
     grid[x][y].element.classList.remove("apple");
     game.apples--;
-    changeScore(1);
+    updateScore(10);
     generateApples();
 }
 
@@ -186,9 +182,9 @@ function eatPowerup(x, y) {
     clearInterval(game.powerUpFlashTimer);
     grid[x][y].powerUp = false;
     grid[x][y].element.classList.remove("powered-up");
-    game.powerUps--;
-    powerUpSnake();
-    changeScore(1);
+    game.powerups--;
+    powerupSnake();
+    updateScore(10);
 }
 
 function generatePowerUp() {
@@ -199,7 +195,7 @@ function generatePowerUp() {
     if(isEmpty(x, y)) {
       grid[x][y].powerUp = true;
       grid[x][y].element.classList.add("powered-up");
-      game.powerUps++;
+      game.powerups++;
       powerupGenerated = true;
       game.powerUpFlashTimer = setInterval(() => {
         grid[x][y].element.classList.contains("powered-up") ? grid[x][y].element.classList.remove("powered-up") : grid[x][y].element.classList.add("powered-up");
@@ -209,19 +205,35 @@ function generatePowerUp() {
 }
 
 // Start the interval for flashing the snake gold and also start the timeout for when the buff ends and the snake returns to normal.
-function powerUpSnake() {
+function powerupSnake() {
+  const index = game.difficultySetting;
+  const dx = snake.direction[0];
+  const dy = snake.direction[1];
+  game.difficulty[index] /= game.powerupSpeedMultiplier; // Increase the snake's speed setting.
+  setMovementInterval(dx, dy); // Call the movement setup with a faster speed to speed up the snake.
+  startFlashingSnake(); // Calls the function to start flashing the snake golden during the powerup duration.
+  setTimeout(() => powerdownSnake(index), game.powerupDuration); // Buff ends after the duration set in game.powerupDuration.
+}
+
+function startFlashingSnake() {
   snake.flashInterval = setInterval(() => {
-    !snake.immortal ? snake.immortal = true : undefined; // sets the snake to immortal so it can pass through itself.
+    snake.immortal = true; // sets the snake to immortal so it can pass through itself.
     flashSnake(); // Calls the flash snake function every 
   }, 300); // 300 milliseconds
+}
 
-  setTimeout(() => {
-    clearInterval(snake.flashInterval);
-    if(snake.bodyClass === snake.powerClass) { // If the interval ends while the snake is golden, we trigger the flash one last time to get the snake back to normal color.
-      flashSnake();
-      snake.immortal = false;
-    }
-  },10000); // Buff ends after 10 seconds.
+function powerdownSnake(index) {
+  // Reset the speed of the snake back to default
+  game.difficulty[index] = gameDefaults.difficulty[index];
+  // Grab the updated direction
+  const dx = snake.direction[0];
+  const dy = snake.direction[1];
+  clearInterval(snake.flashInterval);
+  if(snake.bodyClass === snake.powerClass) { // If the interval ends while the snake is golden, we trigger the flash one last time to get the snake back to normal color.
+    flashSnake();
+    snake.immortal = false;
+  }
+ setMovementInterval(dx, dy); // Returns speed back to normal when buff ends.
 }
 
 function flashSnake() {
@@ -232,9 +244,9 @@ function flashSnake() {
     grid[x][y].element.classList.remove(snake.bodyClass);
     grid[x][y].element.classList.remove(snake.headClass);
   }
-  // Update styling
+  // Update the class stored in "bodyClass" because each time the snake moves, the move function applies this style to the grid. So we need to change it.
   snake.bodyClass === snake.powerClass ? snake.bodyClass = game.snakeDefaults.bodyClass : snake.bodyClass = snake.powerClass;
- // Add new styling
+ // Add new styling immediately, even though the snake will render itself as it moves. Applying the new style immediately looks much more aesthetic and fluid.
   for(const segment of snake.position) {
     const x = segment[0];
     const y = segment[1];
@@ -248,13 +260,12 @@ function isEmpty(x, y) {
 }
 
 function randomNum(min, max) {
-  console.log(`Random number between ${min} and ${max} being generated`)
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function changeScore(adj) {
+function updateScore(adj) {
   const element = document.getElementById("scount");
-  adj === 1 ? game.score += 10 : game.score = 0;
+  game.score += adj;
   element.innerHTML = game.score;
 }
 
@@ -272,7 +283,7 @@ function gameOver() {
 function resetGame(diffSetting, diffElement, diffName) {
   clearAllIntervals(); // Clear all intervals
   clearAllCells(); // Clear all grid cells
-  changeScore(0); // Sets score back to on the page
+  updateScore(game.score/-1); // Sets score back to 0 on the page
   game = structuredClone(gameDefaults); // Return game state to default
   snake = structuredClone(game.snakeDefaults); // Restore snake back to default settings.
   moveSnake(0, 0); // restores snake's starting position
