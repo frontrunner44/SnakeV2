@@ -146,8 +146,12 @@ function moveSnake(dx, dy) {
   grid[newX][newY].snake = true;
   snake.position.unshift([newX, newY]); // Adds the new head coordinates to the front of the snake.positions array
   grid[newX][newY].apple ? ateApple(newX, newY) : handleTail(); // If we ate an apple we call ateApple, otherwise we call handleTail to move the tail.
-  isSnakeOnSnake(newX, newY, 1, 0) && gameOver(); // Short circuit method of calling gameOver if the snake ate itself.
-  grid[newX][newY].powerUp && eatPowerup(newX, newY); // Short circuit method of calling eatPowerup if the snake ate a powerup.
+  if(isSnakeOnSnake(newX, newY, 1, 0) && !snake.immortal) { // If the snake landed on itself and is not immortal, we
+    gameOver(); // call the gameOver() function
+  }
+  if(grid[newX][newY].powerUp) {
+    eatPowerup(newX, newY);
+   }
 }
 
 function handleTail() {
@@ -270,14 +274,10 @@ function updateScore(adj) {
 }
 
 function gameOver() {
-  if(snake.immortal) {
-    return
-  } else {
-    clearAllIntervals();
-    snake.alive = false;
-    game.started = false;
-    alert("GAME OVER - Choose a difficulty to reset the game.");
-  }
+  clearAllIntervals();
+  snake.alive = false;
+  game.started = false;
+  alert("GAME OVER - Choose a difficulty to reset the game.");
 }
 
 function resetGame(diffSetting, diffElement, diffName) {
