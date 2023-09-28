@@ -153,18 +153,16 @@ function moveSnake(dx, dy) {
 }
 
 function checkAteApple(x, y) {
-  if(!grid[x][y].apple) {
+  if(!grid[x][y].apple) { // If we didn't eat an apple on this move
     const lastIndex = snake.position.length-1;
     const tailX = snake.position[lastIndex][0];
     const tailY = snake.position[lastIndex][1];
-    snake.position.pop(); // Remove the tail
-    // Check if the tail is passing through itself (during immortality this is possible) before uncoloring the segment to avoid visual glitching.
-    if(!isSnakeOnSnake(tailX, tailY, 0, 1)){
-      console.log("Remove called");
-      grid[tailX][tailY].element.classList.remove(snake.bodyClass);
-      grid[tailX][tailY].snake = false;
+    snake.position.pop(); // we remove the end (tail) of the snake position array 
+    if(!isSnakeOnSnake(tailX, tailY, 0, 1)){ // and then check that the tail was not on top of another part of the snake's body
+      grid[tailX][tailY].element.classList.remove(snake.bodyClass); // before uncoloring that grid cell from the grid
+      grid[tailX][tailY].snake = false; // and marking the cell as not being occupied by the snake
     }
-  } else {
+  } else { // If we did eat an apple
     grid[x][y].apple = false;
     grid[x][y].element.classList.remove("apple");
     game.apples--;
