@@ -147,28 +147,30 @@ function moveSnake(dx, dy) {
   grid[newX][newY].element.classList.add(snake.headClass);
   grid[newX][newY].snake = true;
   snake.position.unshift([newX, newY]); // Adds the new head coordinates to the front of the snake.positions array
-  checkAteApple(newX, newY); // Handles moving the tail as well
-  isSnakeOnSnake(newX, newY, 1, 0) ? gameOver() : undefined; // Call isSnakeOnSnake to iterate through the snake segments starting 1 from the head and stop 0 before the tail
-  checkEatPowerup(newX, newY);
+  grid[newX][newY].apple ? ateApple(newX, newY) : handleTail(); // If we ate an apple we call ateApple, otherwise we call handleTail to move the tail.
+  isSnakeOnSnake(newX, newY, 1, 0) && gameOver(); // Short circuit method of calling gameOver if the snake ate itself.
+  grid[newX][newY].powerUp && eatPowerup(newX, newY); // Short circuit method of calling eatPowerup if the snake ate a powerup.
 }
 
-function checkAteApple(x, y) {
-  if(!grid[x][y].apple) { // If we didn't eat an apple on this move
-    const lastIndex = snake.position.length-1;
-    const tailX = snake.position[lastIndex][0];
-    const tailY = snake.position[lastIndex][1];
-    snake.position.pop(); // we remove the end (tail) of the snake position array 
-    if(!isSnakeOnSnake(tailX, tailY, 0, 1)){ // and then check that the tail was not on top of another part of the snake's body
-      grid[tailX][tailY].element.classList.remove(snake.bodyClass); // before uncoloring that grid cell from the grid
-      grid[tailX][tailY].snake = false; // and marking the cell as not being occupied by the snake
-    }
-  } else { // If we did eat an apple
+function handleTail() {
+  console.log("Handle tail called");
+  const lastIndex = snake.position.length-1;
+  const tailX = snake.position[lastIndex][0];
+  const tailY = snake.position[lastIndex][1];
+  snake.position.pop(); // we remove the end (tail) of the snake position array 
+  if(!isSnakeOnSnake(tailX, tailY, 0, 1)){ // and then check that the tail was not on top of another part of the snake's body
+    grid[tailX][tailY].element.classList.remove(snake.bodyClass); // before uncoloring that grid cell from the grid
+    grid[tailX][tailY].snake = false; // and marking the cell as not being occupied by the snake
+  }
+}
+
+function ateApple(x, y) {
+  console.log("Ate apple called");
     grid[x][y].apple = false;
     grid[x][y].element.classList.remove("apple");
     game.apples--;
     changeScore(1);
     generateApples();
-  }
 }
 
 function isSnakeOnSnake(x, y, startI, adjust) {
@@ -180,15 +182,13 @@ function isSnakeOnSnake(x, y, startI, adjust) {
   return false;
 }
 
-function checkEatPowerup(x, y) {
-  if(grid[x][y].powerUp === true) {
+function eatPowerup(x, y) {
     clearInterval(game.powerUpFlashTimer);
     grid[x][y].powerUp = false;
     grid[x][y].element.classList.remove("powered-up");
     game.powerUps--;
     powerUpSnake();
     changeScore(1);
-  }
 }
 
 function generatePowerUp() {
