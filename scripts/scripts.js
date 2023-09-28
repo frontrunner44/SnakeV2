@@ -55,7 +55,7 @@ window.onload = function() {
       grid[x][y].element = element;
     }
   }
-  moveSnake(0, 0);
+  spawnSnake();
 }
 
 // Difficulty button functionality
@@ -107,6 +107,13 @@ function setMovementInterval(dx, dy) {
   const speed = game.difficulty[index];
   clearInterval(snake.moveInterval);
   snake.moveInterval = setInterval(() => moveSnake(dx, dy), speed);
+}
+
+function spawnSnake() {
+  const x = snake.position[0][0];
+  const y = snake.position[0][1];
+  grid[x][y].snake = true;
+  grid[x][y].element.classList.add("snake-head");
 }
 
 function generateApples() {
@@ -286,7 +293,7 @@ function resetGame(diffSetting, diffElement, diffName) {
   updateScore(game.score/-1); // Sets score back to 0 on the page
   game = structuredClone(gameDefaults); // Return game state to default
   snake = structuredClone(game.snakeDefaults); // Restore snake back to default settings.
-  moveSnake(0, 0); // restores snake's starting position
+  spawnSnake(); // Respawn the snake
   game.difficultySetting = diffSetting; // Sets the difficulty setting to the new setting
   diffElement.innerHTML = diffName; // Displays the difficulty on the page
 }
