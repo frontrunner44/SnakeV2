@@ -1,16 +1,21 @@
-const game = {
+const gameDefaults = {
   started: false,
-  difficultySetting: 2, // Index of difficulty for snake's movement speed
-  difficulty: [500, 250, 100], // movement speed in miliseconds
+  score: 0,
+  difficultySetting: 1, // Index of difficulty for snake's movement speed
+  difficulty: [150, 100, 50], // movement speed in miliseconds
   maxApples: 3,
   apples: 0,
+  powerUps: 0,
+  powerUpFlashTimer: null,
   columns: 50,
   rows: 50,
+  powerUpChance: 3, // When we go to determine if we'll spawn a powerup, we generate a number between 1 and this number. If it's 1, we spawn the powerup.
   timers: [], // Will store timers IDs so we can iterate through this and stop them during game over or game reset.
   moveCooldownTimer: 100, // Move cooldown in miliseconds. Helps prevent sporadic movements that can cause unintional self collisions.
   moveCooldown: false,
   snakeDefaults: {
     alive: true,
+    immortal: false,
     position: [[0,0]], // Default head position is 0,0
     direction:"",
     moveInterval: null,
@@ -19,7 +24,6 @@ const game = {
     headClass: "snake-head",
     powerClass: "powered-up",
   },
-  grid: [],
   cellDefaults: {
     apple: false,
     snake: false,
@@ -27,7 +31,9 @@ const game = {
     element: null,
   }
 }
-const snake = structuredClone(game.snakeDefaults);
+let game = structuredClone(gameDefaults);
+let snake = structuredClone(game.snakeDefaults);
+const grid = [];
 
 // Grid generation. Since DOM elements are placed left to right
 window.onload = function() {
@@ -35,7 +41,7 @@ window.onload = function() {
   for(let y = 0; y < game.rows; y++) {
     for(let x = 0; x < game.columns; x++) {
       if(y === 0) { // Initiate columns on the initial passthrough
-        game.grid.push([]);
+        grid.push([]);
       }
       const element = document.createElement("div");
       container.appendChild(element);
@@ -43,12 +49,23 @@ window.onload = function() {
       element.setAttribute('data-y', y);
       element.setAttribute('onClick', `testClick(test)`);
       element.classList.add("cell");
-      game.grid[x][y] = structuredClone(game.cellDefaults);
-      game.grid[x][y].element = element;
+      grid[x][y] = structuredClone(game.cellDefaults);
+      grid[x][y].element = element;
     }
   }
-  game.grid[0][0].element.classList.add("snake-head");
-  game.grid[0][0].snake = true;
+  moveSnake(0, 0);
+}
+
+
+// Difficulty button functionality
+function difficultyButtons(diffSetting, diffName) {
+  const element = document.getElementById("diff");
+  if(!game.started && snake.alive) {
+    game.difficultySetting = diffSetting;
+    element.innerHTML = diffName;
+  } else if(confirm(`Do you want to reset the game with difficulty setting: ${diffName}`)) {
+    resetGame(diffSetting, element, diffName);
+  }
 }
 
 document.addEventListener("keydown", event => {
@@ -102,13 +119,16 @@ function generateApples() {
         const ranX = randomNum(0, game.columns-1); // Sets ranX to a random column
         const ranY = randomNum(0, game.rows-1); // Sets ranY to a random row
         if(isEmpty(ranX, ranY)) {
-          game.grid[ranX][ranY].apple = true;
-          game.grid[ranX][ranY].element.classList.add("apple");
+          grid[ranX][ranY].apple = true;
+          grid[ranX][ranY].element.classList.add("apple");
           game.apples++;
           appleSpawned = true;
         }
       }
     }
+  }
+  if(randomNum(1, game.powerUpChance) === 1 && game.powerUps === 0 && !snake.immortal) { // If a randomly generated number between 1 and game.powerUpChance is 1 and there are no powerups on the board, and the snake is currently not powered up, we 
+    generatePowerUp(); // call the function to generate a powerUp on the grid
   }
 }
 
@@ -116,43 +136,76 @@ function moveSnake(dx, dy) {
   const x = snake.position[0][0]; // Stores the x coordinate of the snake's head.
   const y = snake.position[0][1]; // Stores the y coordinate of the snake's head.
   if(snake.position.length > 1) { // If snake is not only a head,
-    game.grid[x][y].element.classList.remove(snake.headClass); // remove the snake-head color from the current head location
-    game.grid[x][y].element.classList.add(snake.bodyClass); // and replace it with the body color
+    grid[x][y].element.classList.remove(snake.headClass); // remove the snake-head color from the current head location
+    grid[x][y].element.classList.add(snake.bodyClass); // and replace it with the body color
   } else { // otherwise
-    game.grid[x][y].element.classList.remove(snake.headClass); // remove the snake head color from the cell
-    game.grid[x][y].snake = false;
+    grid[x][y].element.classList.remove(snake.headClass); // remove the snake head color from the cell
+    grid[x][y].snake = false;
   }
   let newX = (x + dx + game.columns) % game.columns; // Uses modular arithmatic to wrap around columns
   let newY = (y + dy + game.rows) % game.rows; // Uses modular arithmatic to wrap around columns
-  game.grid[newX][newY].element.classList.add(snake.headClass);
-  game.grid[newX][newY].snake = true;
+  grid[newX][newY].element.classList.add(snake.headClass);
+  grid[newX][newY].snake = true;
   snake.position.unshift([newX, newY]); // Adds the new head coordinates to the front of the snake.positions array
   checkAteApple(newX, newY); // Handles moving the tail as well
-  checkCannibalism();
+  isSnakeOnSnake(newX, newY, 1, 0) ? gameOver() : undefined; // Call isSnakeOnSnake to iterate through the snake segments starting 1 from the head and stop 0 before the tail
+  checkEatPowerup(newX, newY);
 }
 
 function checkAteApple(x, y) {
-  if(!game.grid[x][y].apple) {
+  if(!grid[x][y].apple) {
     const lastIndex = snake.position.length-1;
     const tailX = snake.position[lastIndex][0];
     const tailY = snake.position[lastIndex][1];
     snake.position.pop(); // Remove the tail
-    game.grid[tailX][tailY].element.classList.remove(snake.bodyClass);
-    game.grid[tailX][tailY].snake = false;
+    // Check if the tail is passing through itself (during immortality this is possible) before uncoloring the segment to avoid visual glitching.
+    if(!isSnakeOnSnake(tailX, tailY, 0, 1)){
+      console.log("Remove called");
+      grid[tailX][tailY].element.classList.remove(snake.bodyClass);
+      grid[tailX][tailY].snake = false;
+    }
   } else {
-    game.grid[x][y].apple = false;
-    game.grid[x][y].element.classList.remove("apple");
+    grid[x][y].apple = false;
+    grid[x][y].element.classList.remove("apple");
     game.apples--;
+    changeScore(1);
     generateApples();
   }
 }
 
-function checkCannibalism() {
-  const x = snake.position[0][0];
-  const y = snake.position[0][1];
-  for(i = 1; i < snake.position.length; i++) { // Start at the second section of the snake, this way we don't compare the head to itself
+function isSnakeOnSnake(x, y, startI, adjust) {
+  for(i = startI; i < snake.position.length-adjust; i++) { // Start at the second section of the snake, this way we don't compare the head to itself
     if(x === snake.position[i][0] && y === snake.position[i][1]) {
-      gameOver();
+      return true;
+    }
+  }
+  return false;
+}
+
+function checkEatPowerup(x, y) {
+  if(grid[x][y].powerUp === true) {
+    clearInterval(game.powerUpFlashTimer);
+    grid[x][y].powerUp = false;
+    grid[x][y].element.classList.remove("powered-up");
+    game.powerUps--;
+    powerUpSnake();
+    changeScore(1);
+  }
+}
+
+function generatePowerUp() {
+  let powerupGenerated = false;
+  while(!powerupGenerated) {
+    const x = randomNum(0, game.columns-1);
+    const y = randomNum(0, game.rows-1);
+    if(isEmpty(x, y)) {
+      grid[x][y].powerUp = true;
+      grid[x][y].element.classList.add("powered-up");
+      game.powerUps++;
+      powerupGenerated = true;
+      game.powerUpFlashTimer = setInterval(() => {
+        grid[x][y].element.classList.contains("powered-up") ? grid[x][y].element.classList.remove("powered-up") : grid[x][y].element.classList.add("powered-up");
+      }, 500)
     }
   }
 }
@@ -178,8 +231,8 @@ function flashSnake() {
   for(const segment of snake.position) {
     const x = segment[0];
     const y = segment[1];
-    game.grid[x][y].element.classList.remove(snake.bodyClass);
-    game.grid[x][y].element.classList.remove(snake.headClass);
+    grid[x][y].element.classList.remove(snake.bodyClass);
+    grid[x][y].element.classList.remove(snake.headClass);
   }
   // Update styling
   snake.bodyClass === snake.powerClass ? snake.bodyClass = game.snakeDefaults.bodyClass : snake.bodyClass = snake.powerClass;
@@ -187,17 +240,13 @@ function flashSnake() {
   for(const segment of snake.position) {
     const x = segment[0];
     const y = segment[1];
-    game.grid[x][y].element.classList.add(snake.bodyClass);
+    grid[x][y].element.classList.add(snake.bodyClass);
   }
 }
 
 // Helper function to determine is a grid is empty or not.
 function isEmpty(x, y) {
-  if(game.grid[x][y].apple === false && game.grid[x][y].snake === false && game.grid[x][y].powerUp === false) {
-    return true;
-  } else {
-    return false;
-  }
+  return grid[x][y].apple === false && grid[x][y].snake === false && grid[x][y].powerUp === false
 }
 
 function randomNum(min, max) {
@@ -205,6 +254,49 @@ function randomNum(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function changeScore(adj) {
+  const element = document.getElementById("scount");
+  adj === 1 ? game.score += 10 : game.score = 0;
+  element.innerHTML = game.score;
+}
+
 function gameOver() {
- console.log("dedededed");
+  if(snake.immortal) {
+    return
+  } else {
+    clearAllIntervals();
+    snake.alive = false;
+    game.started = false;
+    alert("GAME OVER - Choose a difficulty to reset the game.");
+  }
+}
+
+function resetGame(diffSetting, diffElement, diffName) {
+  clearAllIntervals(); // Clear all intervals
+  clearAllCells(); // Clear all grid cells
+  changeScore(0); // Sets score back to on the page
+  game = structuredClone(gameDefaults); // Return game state to default
+  snake = structuredClone(game.snakeDefaults); // Restore snake back to default settings.
+  moveSnake(0, 0); // restores snake's starting position
+  game.difficultySetting = diffSetting; // Sets the difficulty setting to the new setting
+  diffElement.innerHTML = diffName; // Displays the difficulty on the page
+}
+
+function clearAllCells() {
+  for(let y = 0; y < game.rows; y++) {
+    for(let x = 0; x < game.columns; x++) {
+      const element = grid[x][y].element; // Temporarily store the element reference to a new variable
+      grid[x][y] = structuredClone(game.cellDefaults); // Set this grid object back to default values
+      grid[x][y].element = element; // Restore the element reference
+      grid[x][y].element.classList.remove(...element.classList); // Remove all added CSS class styling
+      grid[x][y].element.classList.add("cell"); // Add back cell styling
+    }
+  }
+}
+
+function clearAllIntervals() {
+  // Can use a single array later that stores all interval IDs and just iterate through to clear them
+  clearInterval(game.powerUpFlashTimer);
+  clearInterval(snake.moveInterval);
+  clearInterval(snake.flashInterval);
 }
