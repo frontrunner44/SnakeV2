@@ -1,40 +1,74 @@
-const gameDefaults = {
-  started: false,
-  score: 0,
-  difficultySetting: 1, // Index of difficulty for snake's movement speed
-  difficulty: [150, 100, 50], // movement speed in miliseconds
-  maxApples: 3,
-  apples: 0,
-  powerups: 0,
-  powerupFlashTimer: null,
-  powerupSpeedMultiplier: 2, // Snake speed is dictated in milliseconds and is divided by this number during a powerup. 2 would mean speed doubles
-  powerupDuration: 10000, // In milliseconds
-  columns: 50,
-  rows: 50,
-  powerUpChance: 3, // When we go to determine if we'll spawn a powerup, we generate a number between 1 and this number. If it's 1, we spawn the powerup.
-  timers: [], // Will store timers IDs so we can iterate through this and stop them during game over or game reset.
-  moveCooldownTimer: 100, // Move cooldown in miliseconds. Helps prevent sporadic movements that can cause unintional self collisions.
-  moveCooldown: false,
-  snakeDefaults: {
-    alive: true,
-    immortal: false,
-    position: [[0,0]], // Default head position is 0,0
-    direction: [],
-    moveInterval: null,
-    flashInterval: null,
-    bodyClass: "snake-body",
-    headClass: "snake-head",
-    powerClass: "powered-up",
-  },
-  cellDefaults: {
-    apple: false,
-    snake: false,
-    powerUp: false,
-    element: null,
+class Game {
+  constructor() {
+    this.reset();
+  }
+
+  // Method to reset the game back to default settings without the need to create an entirely new object.
+  reset() {
+    this.started = false;
+    this.score = 0;
+    this.difficultySetting = 1;
+    this.difficulty = [150, 100, 50];
+    this.maxApples = 3;
+    this.apples = 0;
+    this.powerups = 0;
+    this.powerupFlashTimer = null;
+    this.powerupSpeedMultiplier = 2;
+    this.powerupDuration = 10000;
+    this.columns = 50;
+    this.rows = 50;
+    this.powerUpChance = 3;
+    this.timers = [];
+    this.moveCooldownTimer = 100;
+    this.moveCooldown = false;
+    this.powerupSpeedMod = 2; // Speed mod. Speed is divided by this number to get the new speed. Since speed represents the frequency in milliseconds that the move function is called, dividing by 2 doubles speed.
+  }
+ }
+
+class Snake {
+  constructor() {
+    this.alive = true;
+    this.immortal = false;
+    this.position = [[0,0]]; // Default head position is 0,0
+    this.direction = [];
+    this.moveInterval = null;
+    this.flashInterval = null;
+    this.bodyClass = "snake-body";
+    this.headClass = "snake-head";
+    this.powerClass = "powered-up";
+    this.speedMod = 1; // Default speed mod. Speed is divided by this number to get the new speed. 1 is default/normal speed.
+  }
+
+  spawn() {
+    const x = snake.position[0][0];
+    const y = snake.position[0][1];
+    grid[x][y].snake = true;
+    grid[x][y].element.classList.add("snake-head");
+  }
+
+  resetColor() {
+    this.bodyClass = "snake-body";
+  }
+
+  move(dx, dy) {
+    const index = game.difficultySetting;
+    const speed = game.difficulty[index];
+    clearInterval(this.moveInterval);
+    this.moveInterval = setInterval(() => moveSnake(dx, dy), speed/this.speedMod);
   }
 }
-let game = structuredClone(gameDefaults);
-let snake = structuredClone(game.snakeDefaults);
+
+class Cell {
+  constructor(element) {
+    this.apple = false;
+    this.snake = false;
+    this.powerup = false;
+    this.element = element;
+  }
+}
+
+const game = new Game;
+let snake = new Snake;
 const grid = [];
 
 // Grid generation. Since DOM elements are placed left to right
@@ -51,11 +85,10 @@ window.onload = function() {
       element.setAttribute('data-y', y);
       element.setAttribute('onClick', `testClick(test)`);
       element.classList.add("cell");
-      grid[x][y] = structuredClone(game.cellDefaults);
-      grid[x][y].element = element;
+      grid[x][y] = new Cell(element);
     }
   }
-  spawnSnake();
+  snake.spawn();
 }
 
 // Difficulty button functionality
@@ -95,26 +128,12 @@ document.addEventListener("keydown", event => {
       snake.direction = [0, -1];
     }
     if(dx !== undefined) {
-      setMovementInterval(dx, dy);
+      snake.move(dx, dy);
       game.moveCooldown = true;
       setTimeout(() => game.moveCooldown = false, game.moveCooldownTimer)
     }
   }
 });
-
-function setMovementInterval(dx, dy) {
-  const index = game.difficultySetting;
-  const speed = game.difficulty[index];
-  clearInterval(snake.moveInterval);
-  snake.moveInterval = setInterval(() => moveSnake(dx, dy), speed);
-}
-
-function spawnSnake() {
-  const x = snake.position[0][0];
-  const y = snake.position[0][1];
-  grid[x][y].snake = true;
-  grid[x][y].element.classList.add("snake-head");
-}
 
 function generateApples() {
   const max = game.maxApples - game.apples; // Sets the max number of apples that can be spawned to game.maxApples - game.apples
@@ -156,7 +175,7 @@ function moveSnake(dx, dy) {
   if(isSnakeOnSnake(newX, newY, 1, 0) && !snake.immortal) { // If the snake landed on itself and is not immortal, we
     gameOver(); // call the gameOver() function
   }
-  if(grid[newX][newY].powerUp) {
+  if(grid[newX][newY].powerup) {
     eatPowerup(newX, newY);
    }
 }
@@ -191,7 +210,7 @@ function isSnakeOnSnake(x, y, startI, adjust) {
 
 function eatPowerup(x, y) {
     clearInterval(game.powerUpFlashTimer);
-    grid[x][y].powerUp = false;
+    grid[x][y].powerup = false;
     grid[x][y].element.classList.remove("powered-up");
     game.powerups--;
     powerupSnake();
@@ -204,7 +223,7 @@ function generatePowerUp() {
     const x = randomNum(0, game.columns-1);
     const y = randomNum(0, game.rows-1);
     if(isEmpty(x, y)) {
-      grid[x][y].powerUp = true;
+      grid[x][y].powerup = true;
       grid[x][y].element.classList.add("powered-up");
       game.powerups++;
       powerupGenerated = true;
@@ -220,8 +239,8 @@ function powerupSnake() {
   const index = game.difficultySetting;
   const dx = snake.direction[0];
   const dy = snake.direction[1];
-  game.difficulty[index] /= game.powerupSpeedMultiplier; // Increase the snake's speed setting.
-  setMovementInterval(dx, dy); // Call the movement setup with a faster speed to speed up the snake.
+  snake.speedMod = game.powerupSpeedMod; // Increase the snake's speed by setting the speedMod to game.powerupSpeedMod.
+  snake.move(dx, dy); // Call the movement setup with a faster speed to speed up the snake.
   startFlashingSnake(); // Calls the function to start flashing the snake golden during the powerup duration.
   setTimeout(() => powerdownSnake(index), game.powerupDuration); // Buff ends after the duration set in game.powerupDuration.
 }
@@ -235,7 +254,7 @@ function startFlashingSnake() {
 
 function powerdownSnake(index) {
   // Reset the speed of the snake back to default
-  game.difficulty[index] = gameDefaults.difficulty[index];
+  snake.speedMod = 1; // Restore default speed
   // Grab the updated direction
   const dx = snake.direction[0];
   const dy = snake.direction[1];
@@ -244,7 +263,7 @@ function powerdownSnake(index) {
     flashSnake();
     snake.immortal = false;
   }
- setMovementInterval(dx, dy); // Returns speed back to normal when buff ends.
+ snake.move(dx, dy); // Returns speed back to normal when buff ends.
 }
 
 function flashSnake() {
@@ -256,7 +275,7 @@ function flashSnake() {
     grid[x][y].element.classList.remove(snake.headClass);
   }
   // Update the class stored in "bodyClass" because each time the snake moves, the move function applies this style to the grid. So we need to change it.
-  snake.bodyClass === snake.powerClass ? snake.bodyClass = game.snakeDefaults.bodyClass : snake.bodyClass = snake.powerClass;
+  snake.bodyClass === snake.powerClass ? snake.resetColor() : snake.bodyClass = snake.powerClass;
  // Add new styling immediately, even though the snake will render itself as it moves. Applying the new style immediately looks much more aesthetic and fluid.
   for(const segment of snake.position) {
     const x = segment[0];
@@ -267,7 +286,7 @@ function flashSnake() {
 
 // Helper function to determine is a grid is empty or not.
 function isEmpty(x, y) {
-  return grid[x][y].apple === false && grid[x][y].snake === false && grid[x][y].powerUp === false
+  return grid[x][y].apple === false && grid[x][y].snake === false && grid[x][y].powerup === false
 }
 
 function randomNum(min, max) {
@@ -291,9 +310,9 @@ function resetGame(diffSetting, diffElement, diffName) {
   clearAllIntervals(); // Clear all intervals
   clearAllCells(); // Clear all grid cells
   updateScore(game.score/-1); // Sets score back to 0 on the page
-  game = structuredClone(gameDefaults); // Return game state to default
-  snake = structuredClone(game.snakeDefaults); // Restore snake back to default settings.
-  spawnSnake(); // Respawn the snake
+  game.reset(); // Return game state to default
+  snake = new Snake; // Restore snake back to default settings.
+  snake.spawn(); // Respawn the snake
   game.difficultySetting = diffSetting; // Sets the difficulty setting to the new setting
   diffElement.innerHTML = diffName; // Displays the difficulty on the page
 }
@@ -302,8 +321,7 @@ function clearAllCells() {
   for(let y = 0; y < game.rows; y++) {
     for(let x = 0; x < game.columns; x++) {
       const element = grid[x][y].element; // Temporarily store the element reference to a new variable
-      grid[x][y] = structuredClone(game.cellDefaults); // Set this grid object back to default values
-      grid[x][y].element = element; // Restore the element reference
+      grid[x][y] = new Cell(element); // Set this grid object back to default values
       grid[x][y].element.classList.remove(...element.classList); // Remove all added CSS class styling
       grid[x][y].element.classList.add("cell"); // Add back cell styling
     }
