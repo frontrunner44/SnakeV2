@@ -1,23 +1,36 @@
+const MAX_ROWS = 50;
+const MAX_COLS = 50;
+const MAX_APPLES = 3;
+const POWERUP_CHANCE = 3;
+const POWERUP_DURATION = 10000;
+const POWERUP_SPEEDMOD = 2; // Speed mod. Speed is divided by this number to get the new speed. Since speed represents the frequency in milliseconds that the move function is called, dividing by 2 doubles speed.
+const MOVE_COOLDOWN = 100;
+const DIFFICULTY_SPEEDS = [150, 100, 50];
+const DEFAULT_DIFFICULTY_INDEX = 1;
+const DEFAULT_SNAKE_SPAWN = [[0,0]];
+const SNAKE_BODY_CLASS = "snake-body";
+const SNAKE_HEAD_CLASS = "snake-head";
+const SNAKE_POWERUP_CLASS = "powered-up";
+
 class Game {
   // Method to reset the game back to default settings without the need to create an entirely new object.
   constructor() {
     this.started = false;
     this.score = 0;
-    this.difficultySetting = 1;
-    this.difficulty = [150, 100, 50];
-    this.maxApples = 3;
+    this.difficultySetting = DEFAULT_DIFFICULTY_INDEX;
+    this.difficulty = structuredClone(DIFFICULTY_SPEEDS); // Clones the difficulty_speeds array
+    this.maxApples = MAX_APPLES;
     this.apples = 0;
     this.powerups = 0;
     this.powerupFlashTimer = null;
-    this.powerupSpeedMultiplier = 2;
-    this.powerupDuration = 10000;
-    this.columns = 50;
-    this.rows = 50;
-    this.powerUpChance = 3;
+    this.powerupDuration = POWERUP_DURATION;
+    this.columns = MAX_COLS;
+    this.rows = MAX_ROWS;
+    this.powerUpChance = POWERUP_CHANCE;
     this.timers = [];
-    this.moveCooldownTimer = 100;
+    this.moveCooldownTimer = MOVE_COOLDOWN;
     this.moveCooldown = false;
-    this.powerupSpeedMod = 2; // Speed mod. Speed is divided by this number to get the new speed. Since speed represents the frequency in milliseconds that the move function is called, dividing by 2 doubles speed.
+    this.powerupSpeedMod = POWERUP_SPEEDMOD; 
   }
  }
 
@@ -25,13 +38,13 @@ class Snake {
   constructor() {
     this.alive = true;
     this.immortal = false;
-    this.position = [[0,0]]; // Default head position is 0,0
+    this.position = structuredClone(DEFAULT_SNAKE_SPAWN); // Clones the default snake spawn array
     this.direction = [];
     this.moveInterval = null;
     this.flashInterval = null;
-    this.bodyClass = "snake-body";
-    this.headClass = "snake-head";
-    this.powerClass = "powered-up";
+    this.bodyClass = SNAKE_BODY_CLASS;
+    this.headClass = SNAKE_HEAD_CLASS;
+    this.powerClass = SNAKE_POWERUP_CLASS;
     this.speedMod = 1; // Default speed mod. Speed is divided by this number to get the new speed. 1 is default/normal speed.
   }
 
@@ -43,7 +56,7 @@ class Snake {
   }
 
   resetColor() {
-    this.bodyClass = "snake-body";
+    this.bodyClass = SNAKE_BODY_CLASS;
   }
 
   move(dx, dy) {
@@ -230,15 +243,15 @@ function generatePowerUp() {
   }
 }
 
+// powerupSnake, powerdownSnake and startFlashingSnake (and potentially the flashing logic) can all be methods in the Snake class.
 // Start the interval for flashing the snake gold and also start the timeout for when the buff ends and the snake returns to normal.
 function powerupSnake() {
-  const index = game.difficultySetting;
   const dx = snake.direction[0];
   const dy = snake.direction[1];
   snake.speedMod = game.powerupSpeedMod; // Increase the snake's speed by setting the speedMod to game.powerupSpeedMod.
   snake.move(dx, dy); // Call the movement setup with a faster speed to speed up the snake.
   startFlashingSnake(); // Calls the function to start flashing the snake golden during the powerup duration.
-  setTimeout(() => powerdownSnake(index), game.powerupDuration); // Buff ends after the duration set in game.powerupDuration.
+  setTimeout(() => powerdownSnake(), game.powerupDuration); // Buff ends after the duration set in game.powerupDuration.
 }
 
 function startFlashingSnake() {
@@ -248,7 +261,7 @@ function startFlashingSnake() {
   }, 300); // 300 milliseconds
 }
 
-function powerdownSnake(index) {
+function powerdownSnake() {
   // Reset the speed of the snake back to default
   snake.speedMod = 1; // Restore default speed
   // Grab the updated direction
