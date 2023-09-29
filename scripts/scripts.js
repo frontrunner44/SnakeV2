@@ -1,10 +1,6 @@
 class Game {
-  constructor() {
-    this.reset();
-  }
-
   // Method to reset the game back to default settings without the need to create an entirely new object.
-  reset() {
+  constructor() {
     this.started = false;
     this.score = 0;
     this.difficultySetting = 1;
@@ -40,8 +36,8 @@ class Snake {
   }
 
   spawn() {
-    const x = snake.position[0][0];
-    const y = snake.position[0][1];
+    const x = this.position[0][0];
+    const y = this.position[0][1];
     grid[x][y].snake = true;
     grid[x][y].element.classList.add("snake-head");
   }
@@ -67,7 +63,7 @@ class Cell {
   }
 }
 
-const game = new Game;
+let game = new Game;
 let snake = new Snake;
 const grid = [];
 
@@ -310,7 +306,7 @@ function resetGame(diffSetting, diffElement, diffName) {
   clearAllIntervals(); // Clear all intervals
   clearAllCells(); // Clear all grid cells
   updateScore(game.score/-1); // Sets score back to 0 on the page
-  game.reset(); // Return game state to default
+  game = new Game; // Return game state to default
   snake = new Snake; // Restore snake back to default settings.
   snake.spawn(); // Respawn the snake
   game.difficultySetting = diffSetting; // Sets the difficulty setting to the new setting
