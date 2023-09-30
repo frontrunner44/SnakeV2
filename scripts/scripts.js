@@ -96,6 +96,8 @@ class Cell {
     this.snake = false;
     this.powerup = false;
     this.element = element;
+    element.classList.remove(...element.classList); // Remove any added css classes to this DOM.
+    element.classList.add("cell"); // Add back the cell styling. Later on I'll add this by default via css stylesheet.
   }
 }
 
@@ -114,8 +116,6 @@ class Grid {
        }
        const element = document.querySelector(`[data-x="${x}"][data-y="${y}"]`); // Grab the respective DOM element
        this.cell[x][y] = new Cell(element); // Create a new cell in this index and send the respective DOM element as a parameter so it can hold it as a reference
-       this.cell[x][y].element.classList.remove(...this.cell[x][y].element.classList); // Remove any added css classes to this DOM.
-       this.cell[x][y].element.classList.add("cell"); // Add back the cell styling. Later on I'll add this by default via css stylesheet.
       }
     }  
   }
