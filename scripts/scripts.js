@@ -51,8 +51,8 @@ class Snake {
   spawn() {
     const x = this.position[0][0];
     const y = this.position[0][1];
-    grid[x][y].snake = true;
-    grid[x][y].element.classList.add("snake-head");
+    grid.cell[x][y].snake = true;
+    grid.cell[x][y].element.classList.add(this.headClass);
   }
 
   resetColor() {
@@ -65,6 +65,29 @@ class Snake {
     clearInterval(this.moveInterval);
     this.moveInterval = setInterval(() => moveSnake(dx, dy), speed/this.speedMod);
   }
+
+  powerup() {
+    const dx = this.direction[0];
+    const dy = this.direction[1];
+    this.speedMod = game.powerupSpeedMod; // Increase the snake's speed by setting the speedMod to game.powerupSpeedMod.
+    this.move(dx, dy); // Call the movement setup with a faster speed to speed up the snake.
+    startFlashingSnake(); // Calls the function to start flashing the snake golden during the powerup duration.
+    setTimeout(() => powerdownSnake(), game.powerupDuration); // Buff ends after the duration set in game.powerupDuration.
+  }
+
+  powerdown() {
+    // Reset the speed of the snake back to default
+    this.speedMod = 1; // Restore default speed
+    // Grab the updated direction
+    const dx = this.direction[0];
+    const dy = this.direction[1];
+    clearInterval(this.flashInterval);
+    if(this.bodyClass === this.powerClass) { // If the interval ends while the snake is golden, we trigger the flash one last time to get the snake back to normal color.
+      flashSnake();
+      this.immortal = false;
+    }
+   this.move(dx, dy); // Returns speed back to normal when buff ends.
+  }
 }
 
 class Cell {
@@ -76,27 +99,46 @@ class Cell {
   }
 }
 
+class Grid {
+  constructor() {
+    this.cell = [];
+    this.generateGrid();
+  }
+
+  generateGrid() {
+    // DOM creation. Since cells are placed left to right, we use rows on the outer loop and then columns in the inner. When we're iterating through the first row, we initiate each column by pushing to the array.
+    for (let y = 0; y < game.rows; y++) {
+      for (let x = 0; x < game.columns; x++) {
+        if(y === 0) {
+          this.cell.push([]); // Initializes the columns. While y is 0, we are iterating through the columns for the first time, so we need to create them.
+       }
+       const element = document.querySelector(`[data-x="${x}"][data-y="${y}"]`); // Grab the respective DOM element
+       this.cell[x][y] = new Cell(element); // Create a new cell in this index and send the respective DOM element as a parameter so it can hold it as a reference
+       this.cell[x][y].element.classList.remove(...this.cell[x][y].element.classList); // Remove any added css classes to this DOM.
+       this.cell[x][y].element.classList.add("cell"); // Add back the cell styling. Later on I'll add this by default via css stylesheet.
+      }
+    }  
+  }
+}
+
 let game = new Game;
 let snake = new Snake;
-const grid = [];
+let grid = [];
 
-// Grid generation. Since DOM elements are placed left to right
+// DOM creation. Since cells are placed left to right, we use rows on the outer loop and then columns in the inner.
 window.onload = function() {
   const container = document.getElementById("grid");
   for(let y = 0; y < game.rows; y++) {
     for(let x = 0; x < game.columns; x++) {
-      if(y === 0) { // Initiate columns on the initial passthrough
-        grid.push([]);
-      }
       const element = document.createElement("div");
       container.appendChild(element);
       element.setAttribute('data-x', x);
       element.setAttribute('data-y', y);
       element.setAttribute('onClick', `testClick(test)`);
       element.classList.add("cell");
-      grid[x][y] = new Cell(element);
     }
   }
+  grid = new Grid();
   snake.spawn();
 }
 
@@ -157,8 +199,8 @@ function generateApples() {
         const ranX = randomNum(0, game.columns-1); // Sets ranX to a random column
         const ranY = randomNum(0, game.rows-1); // Sets ranY to a random row
         if(isEmpty(ranX, ranY)) {
-          grid[ranX][ranY].apple = true;
-          grid[ranX][ranY].element.classList.add("apple");
+          grid.cell[ranX][ranY].apple = true;
+          grid.cell[ranX][ranY].element.classList.add("apple");
           game.apples++;
           appleSpawned = true;
         }
@@ -173,18 +215,18 @@ function generateApples() {
 function moveSnake(dx, dy) {
   const x = snake.position[0][0]; // Stores the x coordinate of the snake's head.
   const y = snake.position[0][1]; // Stores the y coordinate of the snake's head.
-  grid[x][y].element.classList.remove(snake.headClass); // remove the snake-head color from the current head location
-  snake.position.length > 1 ? grid[x][y].element.classList.add(snake.bodyClass) : grid[x][y].snake = false; // If the snake is not just a head, replace the uncolored cell with body color, otherwise leave it empty and mark it as not occupied by the snake
+  grid.cell[x][y].element.classList.remove(snake.headClass); // remove the snake-head color from the current head location
+  snake.position.length > 1 ? grid.cell[x][y].element.classList.add(snake.bodyClass) : grid.cell[x][y].snake = false; // If the snake is not just a head, replace the uncolored cell with body color, otherwise leave it empty and mark it as not occupied by the snake
   let newX = (x + dx + game.columns) % game.columns; // Uses modular arithmatic to wrap around columns
   let newY = (y + dy + game.rows) % game.rows; // Uses modular arithmatic to wrap around columns
-  grid[newX][newY].element.classList.add(snake.headClass);
-  grid[newX][newY].snake = true;
+  grid.cell[newX][newY].element.classList.add(snake.headClass);
+  grid.cell[newX][newY].snake = true;
   snake.position.unshift([newX, newY]); // Adds the new head coordinates to the front of the snake.positions array
-  grid[newX][newY].apple ? ateApple(newX, newY) : handleTail(); // If we ate an apple we call ateApple, otherwise we call handleTail to move the tail.
+  grid.cell[newX][newY].apple ? ateApple(newX, newY) : handleTail(); // If we ate an apple we call ateApple, otherwise we call handleTail to move the tail.
   if(isSnakeOnSnake(newX, newY, 1, 0) && !snake.immortal) { // If the snake landed on itself and is not immortal, we
     gameOver(); // call the gameOver() function
   }
-  if(grid[newX][newY].powerup) {
+  if(grid.cell[newX][newY].powerup) {
     eatPowerup(newX, newY);
    }
 }
@@ -195,14 +237,14 @@ function handleTail() {
   const tailY = snake.position[lastIndex][1];
   snake.position.pop(); // we remove the end (tail) of the snake position array 
   if(!isSnakeOnSnake(tailX, tailY, 0, 1)){ // and then check that the tail was not on top of another part of the snake's body
-    grid[tailX][tailY].element.classList.remove(snake.bodyClass); // before uncoloring that grid cell from the grid
-    grid[tailX][tailY].snake = false; // and marking the cell as not being occupied by the snake
+    grid.cell[tailX][tailY].element.classList.remove(snake.bodyClass); // before uncoloring that grid cell from the grid
+    grid.cell[tailX][tailY].snake = false; // and marking the cell as not being occupied by the snake
   }
 }
 
 function ateApple(x, y) {
-    grid[x][y].apple = false;
-    grid[x][y].element.classList.remove("apple");
+    grid.cell[x][y].apple = false;
+    grid.cell[x][y].element.classList.remove("apple");
     game.apples--;
     updateScore(10);
     generateApples();
@@ -219,10 +261,10 @@ function isSnakeOnSnake(x, y, startI, adjust) {
 
 function eatPowerup(x, y) {
     clearInterval(game.powerUpFlashTimer);
-    grid[x][y].powerup = false;
-    grid[x][y].element.classList.remove("powered-up");
+    grid.cell[x][y].powerup = false;
+    grid.cell[x][y].element.classList.remove("powered-up");
     game.powerups--;
-    powerupSnake();
+    snake.powerup();
     updateScore(10);
 }
 
@@ -232,26 +274,15 @@ function generatePowerUp() {
     const x = randomNum(0, game.columns-1);
     const y = randomNum(0, game.rows-1);
     if(isEmpty(x, y)) {
-      grid[x][y].powerup = true;
-      grid[x][y].element.classList.add("powered-up");
+      grid.cell[x][y].powerup = true;
+      grid.cell[x][y].element.classList.add("powered-up");
       game.powerups++;
       powerupGenerated = true;
       game.powerUpFlashTimer = setInterval(() => {
-        grid[x][y].element.classList.contains("powered-up") ? grid[x][y].element.classList.remove("powered-up") : grid[x][y].element.classList.add("powered-up");
+        grid.cell[x][y].element.classList.contains("powered-up") ? grid.cell[x][y].element.classList.remove("powered-up") : grid.cell[x][y].element.classList.add("powered-up");
       }, 500)
     }
   }
-}
-
-// powerupSnake, powerdownSnake and startFlashingSnake (and potentially the flashing logic) can all be methods in the Snake class.
-// Start the interval for flashing the snake gold and also start the timeout for when the buff ends and the snake returns to normal.
-function powerupSnake() {
-  const dx = snake.direction[0];
-  const dy = snake.direction[1];
-  snake.speedMod = game.powerupSpeedMod; // Increase the snake's speed by setting the speedMod to game.powerupSpeedMod.
-  snake.move(dx, dy); // Call the movement setup with a faster speed to speed up the snake.
-  startFlashingSnake(); // Calls the function to start flashing the snake golden during the powerup duration.
-  setTimeout(() => powerdownSnake(), game.powerupDuration); // Buff ends after the duration set in game.powerupDuration.
 }
 
 function startFlashingSnake() {
@@ -261,27 +292,13 @@ function startFlashingSnake() {
   }, 300); // 300 milliseconds
 }
 
-function powerdownSnake() {
-  // Reset the speed of the snake back to default
-  snake.speedMod = 1; // Restore default speed
-  // Grab the updated direction
-  const dx = snake.direction[0];
-  const dy = snake.direction[1];
-  clearInterval(snake.flashInterval);
-  if(snake.bodyClass === snake.powerClass) { // If the interval ends while the snake is golden, we trigger the flash one last time to get the snake back to normal color.
-    flashSnake();
-    snake.immortal = false;
-  }
- snake.move(dx, dy); // Returns speed back to normal when buff ends.
-}
-
 function flashSnake() {
   // Remove old styling
   for(const segment of snake.position) {
     const x = segment[0];
     const y = segment[1];
-    grid[x][y].element.classList.remove(snake.bodyClass);
-    grid[x][y].element.classList.remove(snake.headClass);
+    grid.cell[x][y].element.classList.remove(snake.bodyClass);
+    grid.cell[x][y].element.classList.remove(snake.headClass);
   }
   // Update the class stored in "bodyClass" because each time the snake moves, the move function applies this style to the grid. So we need to change it.
   snake.bodyClass === snake.powerClass ? snake.resetColor() : snake.bodyClass = snake.powerClass;
@@ -289,13 +306,13 @@ function flashSnake() {
   for(const segment of snake.position) {
     const x = segment[0];
     const y = segment[1];
-    grid[x][y].element.classList.add(snake.bodyClass);
+    grid.cell[x][y].element.classList.add(snake.bodyClass);
   }
 }
 
 // Helper function to determine is a grid is empty or not.
 function isEmpty(x, y) {
-  return grid[x][y].apple === false && grid[x][y].snake === false && grid[x][y].powerup === false
+  return grid.cell[x][y].apple === false && grid.cell[x][y].snake === false && grid.cell[x][y].powerup === false
 }
 
 function randomNum(min, max) {
@@ -317,7 +334,7 @@ function gameOver() {
 
 function resetGame(diffSetting, diffElement, diffName) {
   clearAllIntervals(); // Clear all intervals
-  clearAllCells(); // Clear all grid cells
+  grid = new Grid(); // Generate a new grid array.
   updateScore(game.score/-1); // Sets score back to 0 on the page
   game = new Game; // Return game state to default
   snake = new Snake; // Restore snake back to default settings.
@@ -329,10 +346,10 @@ function resetGame(diffSetting, diffElement, diffName) {
 function clearAllCells() {
   for(let y = 0; y < game.rows; y++) {
     for(let x = 0; x < game.columns; x++) {
-      const element = grid[x][y].element; // Temporarily store the element reference to a new variable
-      grid[x][y] = new Cell(element); // Set this grid object back to default values
-      grid[x][y].element.classList.remove(...element.classList); // Remove all added CSS class styling
-      grid[x][y].element.classList.add("cell"); // Add back cell styling
+      const element = grid.cell[x][y].element; // Temporarily store the element reference to a new variable
+      grid.cell[x][y] = new Cell(element); // Set this grid object back to default values
+      grid.cell[x][y].element.classList.remove(...element.classList); // Remove all added CSS class styling
+      grid.cell[x][y].element.classList.add("cell"); // Add back cell styling
     }
   }
 }
