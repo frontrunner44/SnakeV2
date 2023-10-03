@@ -13,7 +13,6 @@ const SNAKE_HEAD_CLASS = "snake-head";
 const SNAKE_POWERUP_CLASS = "powered-up";
 
 class Game {
-  // Method to reset the game back to default settings without the need to create an entirely new object.
   constructor() {
     this.started = false;
     this.score = 0;
@@ -72,7 +71,7 @@ class Snake {
     this.speedMod = game.powerupSpeedMod; // Increase the snake's speed by setting the speedMod to game.powerupSpeedMod.
     this.move(dx, dy); // Call the movement setup with a faster speed to speed up the snake.
     startFlashingSnake(); // Calls the function to start flashing the snake golden during the powerup duration.
-    setTimeout(() => powerdownSnake(), game.powerupDuration); // Buff ends after the duration set in game.powerupDuration.
+    setTimeout(() => this.powerdown(), game.powerupDuration); // Buff ends after the duration set in game.powerupDuration.
   }
 
   powerdown() {
@@ -348,8 +347,6 @@ function clearAllCells() {
     for(let x = 0; x < game.columns; x++) {
       const element = grid.cell[x][y].element; // Temporarily store the element reference to a new variable
       grid.cell[x][y] = new Cell(element); // Set this grid object back to default values
-      grid.cell[x][y].element.classList.remove(...element.classList); // Remove all added CSS class styling
-      grid.cell[x][y].element.classList.add("cell"); // Add back cell styling
     }
   }
 }
